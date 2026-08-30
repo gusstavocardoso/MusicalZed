@@ -1,8 +1,8 @@
 namespace MusicalZed.E2ETests.Tests;
 
 using FluentAssertions;
+using Microsoft.Playwright;
 using Microsoft.Playwright.NUnit;
-using MusicalZed.E2ETests.Helpers;
 using MusicalZed.E2ETests.PageObjects;
 
 [TestFixture]
@@ -24,8 +24,9 @@ public class CartFlowTests : PageTest
     [Test]
     public async Task Cart_WhenEmpty_ShouldShowEmptyMessage()
     {
+        // GoToAsync cria novo circuito Blazor — correto para testar carrinho vazio
         await _cartPage.GoToAsync();
-        await _cartPage.WaitForLoadAsync();
+        await _cartPage.WaitForCartLoadedAsync();
 
         var isEmpty = await _cartPage.IsEmptyAsync();
         isEmpty.Should().BeTrue();
@@ -34,13 +35,19 @@ public class CartFlowTests : PageTest
     [Test]
     public async Task Cart_AfterAddingProduct_ShouldShowItem()
     {
+        // 1. Inicia na home (estabelece o circuito Blazor)
         await _homePage.GoToAsync();
         await _homePage.WaitForLoadAsync();
-        await _homePage.AddFirstProductToCartAsync();
-        await Page.WaitForTimeoutAsync(1000);
 
-        await _cartPage.GoToAsync();
-        await _cartPage.WaitForLoadAsync();
+        // 2. Adiciona produto
+        await _homePage.AddFirstProductToCartAsync();
+
+        // 3. Aguarda toast de confirmação — garante que o item foi gravado no BD
+        await Page.Locator(".mz-toast").WaitForAsync(new() { Timeout = 8000 });
+        await Page.WaitForTimeoutAsync(400);
+
+        // 4. Navega ao carrinho via CLIQUE (preserva o circuito Blazor e SessionId)
+        await _cartPage.NavigateViaClickAsync();
 
         var count = await _cartPage.GetItemCountAsync();
         count.Should().Be(1);
@@ -52,13 +59,18 @@ public class CartFlowTests : PageTest
         await _homePage.GoToAsync();
         await _homePage.WaitForLoadAsync();
         await _homePage.AddFirstProductToCartAsync();
-        await Page.WaitForTimeoutAsync(1000);
 
-        await _cartPage.GoToAsync();
-        await _cartPage.WaitForLoadAsync();
+        await Page.Locator(".mz-toast").WaitForAsync(new() { Timeout = 8000 });
+        await Page.WaitForTimeoutAsync(400);
+
+        // Navega ao carrinho via clique (mesmo circuito)
+        await _cartPage.NavigateViaClickAsync();
+
+        // Clica em "Finalizar Pedido" — usa NavigationManager interno do Blazor
         await _cartPage.ClickCheckoutAsync();
 
-        await Page.WaitForURLAsync(new System.Text.RegularExpressions.Regex("/checkout"));
+        await Page.WaitForURLAsync(new System.Text.RegularExpressions.Regex("/checkout"),
+            new() { Timeout = 10000 });
         Page.Url.Should().Contain("/checkout");
     }
 
@@ -68,12 +80,15 @@ public class CartFlowTests : PageTest
         await _homePage.GoToAsync();
         await _homePage.WaitForLoadAsync();
         await _homePage.AddFirstProductToCartAsync();
-        await Page.WaitForTimeoutAsync(1000);
 
-        await _cartPage.GoToAsync();
-        await _cartPage.WaitForLoadAsync();
+        await Page.Locator(".mz-toast").WaitForAsync(new() { Timeout = 8000 });
+        await Page.WaitForTimeoutAsync(400);
+
+        // Navega ao carrinho via clique (mesmo circuito)
+        await _cartPage.NavigateViaClickAsync();
+
         await _cartPage.ClearCartAsync();
-        await _cartPage.WaitForLoadAsync();
+        await _cartPage.WaitForCartLoadedAsync();
 
         var isEmpty = await _cartPage.IsEmptyAsync();
         isEmpty.Should().BeTrue();

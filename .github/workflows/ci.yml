@@ -127,38 +127,78 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Restore
+      - name: Restore dependencies
         run: dotnet restore
 
-      - name: Build E2E project
-        run: dotnet build tests/MusicalZed.E2ETests -c Debug
+      - name: Build solution (Debug)
+        run: dotnet build -c Debug --no-restore
 
       - name: Install Playwright browsers
         run: |
           pwsh tests/MusicalZed.E2ETests/bin/Debug/net9.0/playwright.ps1 install --with-deps chromium
 
-      - name: Start API (background)
+      # Inicia API em background usando nohup para garantir que o processo persiste
+      - name: Start API
         run: |
-          cd src/MusicalZed.API
-          dotnet run --urls "http://localhost:5000" &
-          sleep 8
+          nohup dotnet run --project src/MusicalZed.API \
+            --no-build \
+            --urls "http://localhost:5000" \
+            > /tmp/api.log 2>&1 &
+          echo "API process started"
 
-      - name: Start Web (background)
+      # Inicia Web em background
+      - name: Start Web
         run: |
-          cd src/MusicalZed.Web
-          dotnet run --urls "http://localhost:5002" &
-          sleep 10
+          nohup dotnet run --project src/MusicalZed.Web \
+            --no-build \
+            --urls "http://localhost:5002" \
+            > /tmp/web.log 2>&1 &
+          echo "Web process started"
 
-      - name: Wait for services
+      # Aguarda a API estar pronta (até 2 minutos)
+      - name: Wait for API to be ready
         run: |
-          curl --retry 10 --retry-delay 3 --retry-connrefused http://localhost:5000/api/categories
-          curl --retry 10 --retry-delay 3 --retry-connrefused http://localhost:5002
+          echo "Waiting for API at http://localhost:5000..."
+          for i in $(seq 1 40); do
+            if curl -sf "http://localhost:5000/api/categories" -o /dev/null 2>&1; then
+              echo "✅ API ready after $i attempts"
+              break
+            fi
+            if [ "$i" = "40" ]; then
+              echo "❌ API failed to start. Logs:"
+              cat /tmp/api.log
+              exit 1
+            fi
+            echo "  Attempt $i/40 — waiting 3s..."
+            sleep 3
+          done
+
+      # Aguarda o frontend Blazor estar pronto (até 2 minutos)
+      # Extra sleep após detecção para garantir que o SignalR Hub está inicializado
+      - name: Wait for Web to be ready
+        run: |
+          echo "Waiting for Web at http://localhost:5002..."
+          for i in $(seq 1 40); do
+            if curl -sf "http://localhost:5002" -o /dev/null 2>&1; then
+              echo "✅ Web ready after $i attempts — waiting extra 8s for SignalR..."
+              sleep 8
+              break
+            fi
+            if [ "$i" = "40" ]; then
+              echo "❌ Web failed to start. Logs:"
+              cat /tmp/web.log
+              exit 1
+            fi
+            echo "  Attempt $i/40 — waiting 3s..."
+            sleep 3
+          done
 
       - name: Run E2E Tests
         env:
           E2E_BASE_URL: http://localhost:5002
         run: |
           dotnet test tests/MusicalZed.E2ETests \
+            --no-build \
             --no-restore \
             --settings tests/MusicalZed.E2ETests/playwright.runsettings \
             --logger "trx;LogFileName=e2e-results.trx" \
@@ -171,6 +211,13 @@ jobs:
           name: e2e-test-results
           path: TestResults/
 
+      - name: Upload service logs on failure
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: service-logs
+          path: /tmp/*.log
+
   # ─────────────────────────────────────────────
   # JOB 5 – PERFORMANCE VALIDATION (k6)
   # ─────────────────────────────────────────────
@@ -178,7 +225,7 @@ jobs:
     name: Performance Tests (k6)
     runs-on: ubuntu-latest
     needs: [unit-tests, integration-tests]
-    # Só executa em push para main
+    # Executa apenas em push para main
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
@@ -201,19 +248,41 @@ jobs:
             | sudo tee /etc/apt/sources.list.d/k6.list
           sudo apt-get update && sudo apt-get install k6 -y
 
-      - name: Restore & Start API
+      - name: Restore & Build API
         run: |
           dotnet restore
-          cd src/MusicalZed.API
-          dotnet run --urls "http://localhost:5000" &
-          sleep 10
-          curl --retry 10 --retry-delay 3 --retry-connrefused http://localhost:5000/api/categories
+          dotnet build src/MusicalZed.API -c Debug --no-restore
 
+      - name: Start API
+        run: |
+          nohup dotnet run --project src/MusicalZed.API \
+            --no-build \
+            --urls "http://localhost:5000" \
+            > /tmp/api.log 2>&1 &
+          echo "API process started"
+
+      - name: Wait for API to be ready
+        run: |
+          echo "Waiting for API..."
+          for i in $(seq 1 40); do
+            if curl -sf "http://localhost:5000/api/categories" -o /dev/null 2>&1; then
+              echo "✅ API ready"
+              break
+            fi
+            if [ "$i" = "40" ]; then
+              echo "❌ API failed. Logs:"; cat /tmp/api.log; exit 1
+            fi
+            echo "  Attempt $i/40 — waiting 3s..."; sleep 3
+          done
+
+      # Smoke test: usa os próprios scenarios da homepage (smoke executor: 1 VU, 10s)
+      # Nota: NÃO sobrescrevemos --vus/--duration pois isso substituiria os scenarios
+      #       definidos no arquivo e dispararia o aviso de "cli override".
       - name: Run Smoke Test (homepage)
         run: |
           k6 run \
             -e API_URL=http://localhost:5000 \
-            --vus 1 --duration 10s \
+            --env SCENARIO=smoke \
             tests/MusicalZed.PerformanceTests/k6/scenarios/homepage-load.js
 
       - name: Run Products Load Test
@@ -239,4 +308,6 @@ jobs:
         if: always()
         with:
           name: k6-results
-          path: '*.json'
+          path: |
+            /tmp/api.log
+            *.json

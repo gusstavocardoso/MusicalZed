@@ -8,19 +8,56 @@ public class CartPage : BasePage
     private const string EmptyCartMessage = ".fa-cart-shopping.fa-4x";
     private const string CheckoutButton = ".btn-mz:has-text('Finalizar')";
     private const string ClearCartButton = "button:has-text('Limpar carrinho')";
-    private const string TotalAmount = ".cart-summary .fw-bold.fs-5 [style*='mz-accent']";
-    private const string IncreaseQtyBtns = ".cart-item-card button:has-text('+')";
-    private const string RemoveButtons = ".cart-item-card .text-danger";
+    private const string NavCartLink = "a[href='/carrinho']";
 
     public CartPage(IPage page, string baseUrl) : base(page, baseUrl) { }
 
+    /// <summary>
+    /// Navegação direta via URL — cria NOVO circuito Blazor.
+    /// Usar apenas quando o carrinho precisa estar vazio (teste de carrinho vazio).
+    /// </summary>
     public async Task GoToAsync() => await NavigateAsync("/carrinho");
 
-    public async Task<int> GetItemCountAsync() =>
-        await Page.Locator(CartItems).CountAsync();
+    /// <summary>
+    /// Navegação via clique no link da navbar — PRESERVA o circuito Blazor existente
+    /// e mantém o SessionId do CartStateService. Usar após interações na página atual.
+    /// </summary>
+    public async Task NavigateViaClickAsync()
+    {
+        await Page.Locator(NavCartLink).First.ClickAsync();
+        await WaitForCartLoadedAsync();
+    }
 
-    public async Task<bool> IsEmptyAsync() =>
-        await IsElementVisibleAsync(EmptyCartMessage);
+    /// <summary>
+    /// Aguarda o carrinho terminar de carregar (spinner desaparece ou conteúdo aparece).
+    /// </summary>
+    public async Task WaitForCartLoadedAsync()
+    {
+        // Aguarda o spinner sumir ou o conteúdo do carrinho aparecer
+        try
+        {
+            await Page.Locator(".mz-spinner").WaitForAsync(new()
+            {
+                State = WaitForSelectorState.Hidden,
+                Timeout = 8000
+            });
+        }
+        catch { /* Spinner pode não aparecer se Blazor renderizar rapidamente */ }
+
+        await Page.WaitForTimeoutAsync(500);
+    }
+
+    public async Task<int> GetItemCountAsync()
+    {
+        await WaitForCartLoadedAsync();
+        return await Page.Locator(CartItems).CountAsync();
+    }
+
+    public async Task<bool> IsEmptyAsync()
+    {
+        await WaitForCartLoadedAsync();
+        return await IsElementVisibleAsync(EmptyCartMessage);
+    }
 
     public async Task ClickCheckoutAsync() =>
         await Page.Locator(CheckoutButton).ClickAsync();
@@ -34,10 +71,4 @@ public class CartPage : BasePage
 
     public async Task<bool> IsCheckoutButtonVisibleAsync() =>
         await IsElementVisibleAsync(CheckoutButton);
-
-    public async Task IncreaseFirstItemQtyAsync() =>
-        await Page.Locator(IncreaseQtyBtns).First.ClickAsync();
-
-    public async Task RemoveFirstItemAsync() =>
-        await Page.Locator(RemoveButtons).First.ClickAsync();
 }

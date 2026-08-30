@@ -1,8 +1,8 @@
 namespace MusicalZed.E2ETests.Tests;
 
 using FluentAssertions;
+using Microsoft.Playwright;
 using Microsoft.Playwright.NUnit;
-using MusicalZed.E2ETests.Helpers;
 using MusicalZed.E2ETests.PageObjects;
 
 [TestFixture]
@@ -15,25 +15,56 @@ public class CheckoutFlowTests : PageTest
     private string _baseUrl = null!;
 
     [SetUp]
-    public async Task SetUpAsync()
+    public void SetUp()
     {
         _baseUrl = Helpers.PlaywrightSetup.BaseUrl;
         _homePage = new HomePage(Page, _baseUrl);
         _cartPage = new CartPage(Page, _baseUrl);
         _checkoutPage = new CheckoutPage(Page, _baseUrl);
+    }
 
-        // Add item to cart before checkout tests
+    /// <summary>
+    /// Navega todo o fluxo home → carrinho → checkout usando APENAS cliques internos
+    /// do Blazor para preservar o circuito SignalR e o SessionId do CartStateService.
+    ///
+    /// Cada PageTest (NUnit) recebe uma nova Page/BrowserContext, então cada teste
+    /// começa com um único GoToAsync na home para estabelecer o circuito inicial.
+    /// Todas as navegações subsequentes usam cliques para manter o mesmo SessionId.
+    /// </summary>
+    private async Task NavigateToCheckoutWithItemAsync()
+    {
+        // Passo 1: Estabelece o circuito Blazor (único GoToAsync por teste)
         await _homePage.GoToAsync();
         await _homePage.WaitForLoadAsync();
+
+        // Passo 2: Adiciona produto ao carrinho
         await _homePage.AddFirstProductToCartAsync();
-        await Page.WaitForTimeoutAsync(1000);
+
+        // Passo 3: Aguarda toast — confirma que o item foi persistido no BD
+        //          para o SessionId deste circuito
+        await Page.Locator(".mz-toast").WaitForAsync(new() { Timeout = 10000 });
+        await Page.WaitForTimeoutAsync(400);
+
+        // Passo 4: Navega ao carrinho via CLIQUE no navbar (enhanced navigation —
+        //          preserva circuito Blazor e SessionId)
+        await _cartPage.NavigateViaClickAsync();
+
+        // Passo 5: Clica em "Finalizar Pedido" no carrinho
+        //          Cart.razor usa Nav.NavigateTo("/checkout") — mesma sessão
+        await _cartPage.ClickCheckoutAsync();
+
+        // Aguarda a página de checkout carregar
+        await Page.WaitForURLAsync(new System.Text.RegularExpressions.Regex("/checkout"),
+            new() { Timeout = 10000 });
+        await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
     }
 
     [Test]
     public async Task Checkout_EmptyForm_ShouldShowError()
     {
-        await _checkoutPage.GoToAsync();
-        await _checkoutPage.WaitForLoadAsync();
+        await NavigateToCheckoutWithItemAsync();
+
+        // Tenta confirmar sem preencher o formulário
         await _checkoutPage.ClickConfirmAsync();
 
         var hasError = await _checkoutPage.IsErrorVisibleAsync();
@@ -43,8 +74,7 @@ public class CheckoutFlowTests : PageTest
     [Test]
     public async Task Checkout_WithValidData_ShouldRedirectToConfirmation()
     {
-        await _checkoutPage.GoToAsync();
-        await _checkoutPage.WaitForLoadAsync();
+        await NavigateToCheckoutWithItemAsync();
 
         await _checkoutPage.FillCustomerDataAsync(
             "Carlos Teste", "carlos@teste.com", "(11) 91234-5678");
@@ -55,7 +85,7 @@ public class CheckoutFlowTests : PageTest
 
         await Page.WaitForURLAsync(
             new System.Text.RegularExpressions.Regex("/pedido-confirmado/\\d+"),
-            new() { Timeout = 10000 });
+            new() { Timeout = 15000 });
 
         Page.Url.Should().Contain("/pedido-confirmado/");
     }
@@ -63,8 +93,7 @@ public class CheckoutFlowTests : PageTest
     [Test]
     public async Task OrderConfirmation_ShouldShowSuccessPage()
     {
-        await _checkoutPage.GoToAsync();
-        await _checkoutPage.WaitForLoadAsync();
+        await NavigateToCheckoutWithItemAsync();
 
         await _checkoutPage.FillCustomerDataAsync(
             "Paula Silva", "paula@teste.com", "(21) 99876-5432");
@@ -75,7 +104,7 @@ public class CheckoutFlowTests : PageTest
 
         await Page.WaitForURLAsync(
             new System.Text.RegularExpressions.Regex("/pedido-confirmado/\\d+"),
-            new() { Timeout = 10000 });
+            new() { Timeout = 15000 });
 
         var confirmationPage = new OrderConfirmationPage(Page, _baseUrl);
         var isSuccess = await confirmationPage.IsSuccessIconVisibleAsync();
