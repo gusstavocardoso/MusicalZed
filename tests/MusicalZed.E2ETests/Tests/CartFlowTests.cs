@@ -69,7 +69,7 @@ public class CartFlowTests : PageTest
         // Clica em "Finalizar Pedido" — usa NavigationManager interno do Blazor
         await _cartPage.ClickCheckoutAsync();
 
-        await Page.WaitForURLAsync(new System.Text.RegularExpressions.Regex("/checkout"),
+        await Expect(Page).ToHaveURLAsync(new System.Text.RegularExpressions.Regex("/checkout"),
             new() { Timeout = 10000 });
         Page.Url.Should().Contain("/checkout");
     }

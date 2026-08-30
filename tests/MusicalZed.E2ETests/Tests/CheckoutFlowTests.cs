@@ -54,7 +54,7 @@ public class CheckoutFlowTests : PageTest
         await _cartPage.ClickCheckoutAsync();
 
         // Aguarda a página de checkout carregar
-        await Page.WaitForURLAsync(new System.Text.RegularExpressions.Regex("/checkout"),
+        await Expect(Page).ToHaveURLAsync(new System.Text.RegularExpressions.Regex("/checkout"),
             new() { Timeout = 10000 });
         await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
     }
