@@ -7,7 +7,7 @@ public class CheckoutPage : BasePage
     private const string NameInput = "input[placeholder='Seu nome completo']";
     private const string EmailInput = "input[type='email']";
     private const string PhoneInput = "input[placeholder='(11) 99999-9999']";
-    private const string AddressInput = "input[placeholder='Rua, número, complemento']";
+    private const string AddressInput = "input[placeholder*='Rua']";
     private const string CityInput = "input[placeholder='Cidade']";
     private const string StateSelect = "select";
     private const string ZipInput = "input[placeholder='00000-000']";
