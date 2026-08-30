@@ -1,0 +1,192 @@
+@page "/checkout"
+@rendermode InteractiveServer
+@inject ICartService CartService
+@inject IOrderService OrderService
+@inject CartStateService CartState
+@inject NavigationManager Nav
+
+<PageTitle>Finalizar Pedido - Musical Zed</PageTitle>
+
+<div class="container my-5">
+    <h2 class="mz-section-title"><i class="fa-solid fa-credit-card me-2"></i>Finalizar Pedido</h2>
+
+    @if (_cart is null)
+    {
+        <div class="mz-spinner"></div>
+    }
+    else if (!_cart.Items.Any())
+    {
+        <div class="text-center py-5">
+            <p class="text-muted">Seu carrinho est&aacute; vazio. <a href="/produtos">Adicionar produtos</a></p>
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <!-- Dados Pessoais -->
+                <div class="checkout-card">
+                    <h5 class="fw-bold mb-3"><i class="fa-solid fa-user me-2 text-danger"></i>Dados Pessoais</h5>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Nome Completo *</label>
+                            <input class="form-control" @bind="_name" placeholder="Seu nome completo" />
+                            @if (_showErrors && string.IsNullOrWhiteSpace(_name))
+                            { <div class="text-danger small mt-1">Campo obrigat&oacute;rio</div> }
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold">E-mail *</label>
+                            <input class="form-control" type="email" @bind="_email" placeholder="seu@email.com" />
+                            @if (_showErrors && string.IsNullOrWhiteSpace(_email))
+                            { <div class="text-danger small mt-1">Campo obrigat&oacute;rio</div> }
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold">Telefone *</label>
+                            <input class="form-control" @bind="_phone" placeholder="(11) 99999-9999" />
+                            @if (_showErrors && string.IsNullOrWhiteSpace(_phone))
+                            { <div class="text-danger small mt-1">Campo obrigat&oacute;rio</div> }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Endere&ccedil;o -->
+                <div class="checkout-card">
+                    <h5 class="fw-bold mb-3"><i class="fa-solid fa-map-marker-alt me-2 text-danger"></i>Endere&ccedil;o de Entrega</h5>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Endere&ccedil;o *</label>
+                            <input class="form-control" @bind="_address" placeholder="Rua, n&uacute;mero, complemento" />
+                            @if (_showErrors && string.IsNullOrWhiteSpace(_address))
+                            { <div class="text-danger small mt-1">Campo obrigat&oacute;rio</div> }
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold">Cidade *</label>
+                            <input class="form-control" @bind="_city" placeholder="Cidade" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-semibold">Estado *</label>
+                            <select class="form-select" @bind="_state">
+                                <option value="">UF</option>
+                                @foreach (var uf in new[]{"AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"})
+                                {
+                                    <option value="@uf">@uf</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-semibold">CEP *</label>
+                            <input class="form-control" @bind="_zip" placeholder="00000-000" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pagamento -->
+                <div class="checkout-card">
+                    <h5 class="fw-bold mb-3"><i class="fa-solid fa-wallet me-2 text-danger"></i>Forma de Pagamento</h5>
+                    <div class="row g-2">
+                        @foreach (var pm in new[] { ("Cart&atilde;o de Cr&eacute;dito", "fa-credit-card"), ("Boleto Banc&aacute;rio", "fa-barcode"), ("PIX", "fa-qrcode"), ("Cart&atilde;o de D&eacute;bito", "fa-credit-card") })
+                        {
+                            <div class="col-6 col-md-3">
+                                <input type="radio" class="btn-check" name="payment" id="pm-@pm.Item1"
+                                       value="@pm.Item1" checked="@(_payment == pm.Item1)"
+                                       @onchange="() => _payment = pm.Item1" />
+                                <label class="btn btn-outline-secondary w-100 text-start" for="pm-@pm.Item1">
+                                    <i class="fa-solid @pm.Item2 me-2"></i>@((MarkupString)pm.Item1)
+                                </label>
+                            </div>
+                        }
+                    </div>
+                    @if (_showErrors && string.IsNullOrWhiteSpace(_payment))
+                    { <div class="text-danger small mt-2">Selecione uma forma de pagamento</div> }
+                </div>
+            </div>
+
+            <!-- Resumo -->
+            <div class="col-lg-4">
+                <div class="cart-summary">
+                    <h5 class="fw-bold mb-3">Resumo</h5>
+                    @foreach (var item in _cart.Items)
+                    {
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span class="text-muted text-truncate me-2" style="max-width:170px">@item.Quantity &times; @item.ProductName</span>
+                            <span>R$ @item.Subtotal.ToString("N2")</span>
+                        </div>
+                    }
+                    <hr />
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span class="text-muted">Subtotal</span>
+                        <span>R$ @_cart.Total.ToString("N2")</span>
+                    </div>
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span class="text-muted">Frete</span>
+                        @if (_cart.Total >= 500)
+                        { <span class="text-success">Gr&aacute;tis</span> }
+                        else
+                        { <span>R$ 29,90</span> }
+                    </div>
+                    <hr />
+                    <div class="d-flex justify-content-between fw-bold mb-4">
+                        <span>Total</span>
+                        <span style="color:var(--mz-accent)">
+                            R$ @((_cart.Total + (_cart.Total >= 500 ? 0 : 29.90m)).ToString("N2"))
+                        </span>
+                    </div>
+
+                    @if (_error is not null)
+                    {
+                        <div class="alert alert-danger py-2 small">@_error</div>
+                    }
+
+                    <button class="btn btn-mz w-100" @onclick="PlaceOrder" disabled="@_submitting">
+                        @if (_submitting) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                        else { <i class="fa-solid fa-check me-2"></i> }
+                        Confirmar Pedido
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private CartDto? _cart;
+    private string _name = string.Empty, _email = string.Empty, _phone = string.Empty;
+    private string _address = string.Empty, _city = string.Empty, _state = string.Empty, _zip = string.Empty;
+    private string _payment = string.Empty;
+    private bool _showErrors, _submitting;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _cart = await CartService.GetCartAsync(CartState.SessionId);
+        if (!_cart.Items.Any()) Nav.NavigateTo("/carrinho");
+    }
+
+    private async Task PlaceOrder()
+    {
+        _showErrors = true;
+        if (string.IsNullOrWhiteSpace(_name) || string.IsNullOrWhiteSpace(_email) ||
+            string.IsNullOrWhiteSpace(_phone) || string.IsNullOrWhiteSpace(_address) ||
+            string.IsNullOrWhiteSpace(_city) || string.IsNullOrWhiteSpace(_payment))
+        {
+            _error = "Preencha todos os campos obrigat&oacute;rios.";
+            return;
+        }
+
+        _submitting = true;
+        _error = null;
+        try
+        {
+            var order = await OrderService.CreateAsync(new CreateOrderRequest(
+                _name, _email, _phone, _address, _city, _state, _zip,
+                _payment, CartState.SessionId, string.Empty));
+            CartState.SetItemCount(0);
+            Nav.NavigateTo($"/pedido-confirmado/{order.Id}");
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+            _submitting = false;
+        }
+    }
+}

@@ -1,0 +1,65 @@
+namespace MusicalZed.Infrastructure.Data;
+
+using Microsoft.EntityFrameworkCore;
+using MusicalZed.Domain.Entities;
+
+public static class DataSeeder
+{
+    public static async Task SeedAsync(MusicalZedDbContext context)
+    {
+        await context.Database.EnsureCreatedAsync();
+
+        if (await context.Categories.AnyAsync()) return;
+
+        var categories = new List<Category>
+        {
+            new() { Name = "Guitarras", Description = "Guitarras elétricas e acústicas", IconClass = "fa-guitar" },
+            new() { Name = "Baixos", Description = "Baixos elétricos e acústicos", IconClass = "fa-music" },
+            new() { Name = "Baterias", Description = "Baterias e percussão", IconClass = "fa-drum" },
+            new() { Name = "Teclados", Description = "Teclados e pianos digitais", IconClass = "fa-piano" },
+            new() { Name = "Amplificadores", Description = "Amplificadores e caixas de som", IconClass = "fa-volume-up" },
+            new() { Name = "Acessórios", Description = "Cordas, palhetas, capas e mais", IconClass = "fa-tools" },
+        };
+
+        context.Categories.AddRange(categories);
+        await context.SaveChangesAsync();
+
+        var products = new List<Product>
+        {
+            // Guitarras
+            new() { Name = "Guitarra Stratocaster American Professional II", Brand = "Fender", SKU = "FEN-STRAT-AP2", CategoryId = categories[0].Id, Price = 12499.00m, OriginalPrice = 13999.00m, ShortDescription = "A lendária Stratocaster agora com captadores V-Mod II", Description = "A Fender American Professional II Stratocaster combina décadas de aperfeiçoamento com melhorias modernas. Equipada com captadores V-Mod II, ponte de ajuste profundo e divisor de bobina Deep-C, é a guitarra definitiva para profissionais.", ImageUrl = "https://images.unsplash.com/photo-1510915361894-db8b60106cb1?w=600", StockQuantity = 5, IsFeatured = true, Rating = 4.9, ReviewCount = 128 },
+            new() { Name = "Guitarra Les Paul Standard 60s", Brand = "Gibson", SKU = "GIB-LP-60S", CategoryId = categories[0].Id, Price = 18999.00m, OriginalPrice = 21000.00m, ShortDescription = "O clássico som dos anos 60 em suas mãos", Description = "A Gibson Les Paul Standard '60s captura o espírito dos modelos originais dos anos 60 com um neck profile Slim Taper, captadores Burstbucker e madeira de alta qualidade para um tom inconfundível.", ImageUrl = "https://images.unsplash.com/photo-1525201548942-d8732f6617a0?w=600", StockQuantity = 3, IsFeatured = true, Rating = 4.8, ReviewCount = 95 },
+            new() { Name = "Guitarra SG Standard", Brand = "Gibson", SKU = "GIB-SG-STD", CategoryId = categories[0].Id, Price = 9799.00m, ShortDescription = "O design iconicamente rebelde com som poderoso", Description = "A Gibson SG Standard é a favorita de rockeiros ao redor do mundo. Com seu corpo de mogno duplo, captadores 490R e 490T, ela entrega um som agressivo e versátil perfeito para qualquer estilo.", ImageUrl = "https://images.unsplash.com/photo-1564186763535-ebb21ef5277f?w=600", StockQuantity = 4, IsFeatured = false, Rating = 4.7, ReviewCount = 67 },
+            new() { Name = "Guitarra Telecaster Player Series", Brand = "Fender", SKU = "FEN-TELE-PLY", CategoryId = categories[0].Id, Price = 5299.00m, OriginalPrice = 5999.00m, ShortDescription = "O twang clássico da Telecaster a um preço acessível", Description = "A Fender Player Telecaster traz o som iconic da Tele com captadores Player Series Alnico 5, corpo de amieiro e neck profile de C moderno para um conforto incomparável.", ImageUrl = "https://images.unsplash.com/photo-1556449895-a33c9dba33dd?w=600", StockQuantity = 8, IsFeatured = true, Rating = 4.6, ReviewCount = 203 },
+            new() { Name = "Guitarra RG550 Genesis", Brand = "Ibanez", SKU = "IBZ-RG550-GEN", CategoryId = categories[0].Id, Price = 7299.00m, ShortDescription = "Shredder de alto desempenho com captadores DiMarzio", Description = "A Ibanez RG550 Genesis é a escolha dos guitarristas de metal e shred. Com captadores DiMarzio PAF Pro, Floyd Rose Original e pescoço ultra rápido, ela foi feita para velocidade e precisão.", ImageUrl = "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600", StockQuantity = 6, IsFeatured = false, Rating = 4.7, ReviewCount = 89 },
+
+            // Baixos
+            new() { Name = "Baixo Jazz Bass American Professional II", Brand = "Fender", SKU = "FEN-JB-AP2", CategoryId = categories[1].Id, Price = 13999.00m, OriginalPrice = 15500.00m, ShortDescription = "O jazz bass redefinido para músicos modernos", Description = "O Fender American Professional II Jazz Bass leva a lenda do Jazz Bass a novos patamares com captadores V-Mod II Jazz Bass e hardware melhorado para estabilidade de afinação superior.", ImageUrl = "https://images.unsplash.com/photo-1516924962500-2b4b3b99ea02?w=600", StockQuantity = 4, IsFeatured = true, Rating = 4.8, ReviewCount = 76 },
+            new() { Name = "Baixo StingRay Special", Brand = "Music Man", SKU = "MM-SR-SPEC", CategoryId = categories[1].Id, Price = 16500.00m, ShortDescription = "O lendário StingRay com melhorias modernas", Description = "O Music Man StingRay Special é um ícone redesenhado. Com captador humbucker de bobina dupla, eletrônica de 3 bandas e acabamento impecável, é o baixo que define o groove.", ImageUrl = "https://images.unsplash.com/photo-1510915228340-29c85a43dcfe?w=600", StockQuantity = 2, IsFeatured = true, Rating = 4.9, ReviewCount = 54 },
+            new() { Name = "Baixo Precision Bass Player Series", Brand = "Fender", SKU = "FEN-PB-PLY", CategoryId = categories[1].Id, Price = 4899.00m, ShortDescription = "O Precision Bass clássico com qualidade Player Series", Description = "O Fender Player Precision Bass oferece o som fundacional do rock com captador split-coil Alnico 5, corpo de amieiro e bridge de alta massa para sustain aprimorado.", ImageUrl = "https://images.unsplash.com/photo-1549298916-b41d501d3772?w=600", StockQuantity = 7, IsFeatured = false, Rating = 4.5, ReviewCount = 112 },
+
+            // Baterias
+            new() { Name = "Bateria Stage Custom Birch", Brand = "Yamaha", SKU = "YAM-SCB-BIR", CategoryId = categories[2].Id, Price = 8999.00m, OriginalPrice = 10500.00m, ShortDescription = "Bateria profissional de birch para o palco", Description = "A Yamaha Stage Custom Birch é a escolha dos bateristas de studio e palco. Com cascas de bétula de 6 lâminas, hardware F465A e hardware de alta resistência, ela entrega um som aberto e brillante.", ImageUrl = "https://images.unsplash.com/photo-1571327073757-71d13b8c0f34?w=600", StockQuantity = 3, IsFeatured = true, Rating = 4.7, ReviewCount = 45 },
+            new() { Name = "Bateria DW Performance Series", Brand = "DW Drums", SKU = "DW-PERF-SER", CategoryId = categories[2].Id, Price = 22999.00m, ShortDescription = "Baterias de nível profissional para artistas exigentes", Description = "A DW Performance Series é construída com a mesma qualidade das baterias Custom, mas a um preço mais acessível. Cascas de maple/bétula híbrido com acabamentos exclusivos.", ImageUrl = "https://images.unsplash.com/photo-1544931571-a8a1d3c3d3b0?w=600", StockQuantity = 2, IsFeatured = true, Rating = 4.9, ReviewCount = 31 },
+            new() { Name = "Pad Eletrônico Roland V-Drums TD-17KVX2", Brand = "Roland", SKU = "ROL-TD17KVX2", CategoryId = categories[2].Id, Price = 14999.00m, ShortDescription = "Bateria eletrônica com mesh heads para máximo realismo", Description = "O Roland TD-17KVX2 oferece a experiência mais próxima de uma bateria acústica em formato eletrônico. Com módulo TD-17 e mesh heads, você pratica sem incomodar vizinhos.", ImageUrl = "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=600", StockQuantity = 4, IsFeatured = false, Rating = 4.8, ReviewCount = 67 },
+
+            // Teclados
+            new() { Name = "Piano Digital DP603", Brand = "Roland", SKU = "ROL-DP603", CategoryId = categories[3].Id, Price = 18999.00m, OriginalPrice = 21000.00m, ShortDescription = "Grand piano digital com ação SuperNATURAL", Description = "O Roland DP603 oferece 88 teclas com mecanismo PHA-50 e gerador de sons SuperNATURAL Piano, reproduzindo com fidelidade a experiência de tocar um grand piano de concerto.", ImageUrl = "https://images.unsplash.com/photo-1520523839897-bd0b52f945a0?w=600", StockQuantity = 2, IsFeatured = true, Rating = 4.9, ReviewCount = 38 },
+            new() { Name = "Teclado Synthesizer JUNO-DS88", Brand = "Roland", SKU = "ROL-JUNO-DS88", CategoryId = categories[3].Id, Price = 7499.00m, ShortDescription = "Synthesizer versátil de 88 teclas para palco", Description = "O Roland JUNO-DS88 é o companheiro ideal para apresentações ao vivo. Com 88 teclas pesadas, bateria incluída e 128 vozes polifônicas, ele tem tudo que um músico precisa no palco.", ImageUrl = "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600", StockQuantity = 5, IsFeatured = false, Rating = 4.6, ReviewCount = 59 },
+            new() { Name = "Controlador MIDI Keylab 49 MkII", Brand = "Arturia", SKU = "ART-KL49-MK2", CategoryId = categories[3].Id, Price = 3299.00m, ShortDescription = "Controlador profissional de 49 teclas com software incluído", Description = "O Arturia KeyLab 49 MkII é um controlador MIDI premium com 49 teclas semiweighted, 16 pads RGB, 9 faders e encoder. Inclui o Analog Lab V com mais de 6500 presets.", ImageUrl = "https://images.unsplash.com/photo-1544652478-6653e09f18a2?w=600", StockQuantity = 8, IsFeatured = false, Rating = 4.7, ReviewCount = 92 },
+
+            // Amplificadores
+            new() { Name = "Amplificador Blues Junior IV", Brand = "Fender", SKU = "FEN-BJ4", CategoryId = categories[4].Id, Price = 5999.00m, ShortDescription = "O clássico amp valvulado Fender em formato compacto", Description = "O Fender Blues Junior IV é um amplificador valvulado de 15W com falante de 12 polegadas. Perfeito para blues, jazz e rock com o tom clássico Fender que nunca sai de moda.", ImageUrl = "https://images.unsplash.com/photo-1629006993700-a4aa5ee51a48?w=600", StockQuantity = 6, IsFeatured = true, Rating = 4.8, ReviewCount = 142 },
+            new() { Name = "Amplificador Marshall DSL40CR", Brand = "Marshall", SKU = "MAR-DSL40CR", CategoryId = categories[4].Id, Price = 7999.00m, ShortDescription = "O som Marshall clássico em 40 watts valvulados", Description = "O Marshall DSL40CR é um amplificador valvulado de 40W com 2 canais (Classic Gain e Ultra Gain), reverb digital e saída emulada para gravar sem microfone.", ImageUrl = "https://images.unsplash.com/photo-1561327073757-71d13b8c0f34?w=600", StockQuantity = 4, IsFeatured = true, Rating = 4.7, ReviewCount = 87 },
+
+            // Acessórios
+            new() { Name = "Cordas para Guitarra Elétrica Super Slinky", Brand = "Ernie Ball", SKU = "EB-SS-2223", CategoryId = categories[5].Id, Price = 59.90m, ShortDescription = "As cordas mais vendidas do mundo - calibre 09-42", Description = "As Ernie Ball Super Slinky são as cordas favoritas de guitarristas como Slash, Steve Lukather e Eric Clapton. Calibre 09-42 em aço inox para longevidade e brilho excepcional.", ImageUrl = "https://images.unsplash.com/photo-1617066816083-4e29c76eb6fa?w=600", StockQuantity = 50, IsFeatured = false, Rating = 4.8, ReviewCount = 567 },
+            new() { Name = "Palheta Dunlop Tortex 0.88mm", Brand = "Dunlop", SKU = "DUN-TOR-088", CategoryId = categories[5].Id, Price = 4.90m, ShortDescription = "Palheta de alta durabilidade para guitarristas exigentes", Description = "A Dunlop Tortex 0.88mm é a escolha de milhões de guitarristas pela sua durabilidade e textura única que proporciona excelente grip e ataque preciso.", ImageUrl = "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=600", StockQuantity = 200, IsFeatured = false, Rating = 4.9, ReviewCount = 1205 },
+            new() { Name = "Afinador Pedal TU-3W Waza Craft", Brand = "Boss", SKU = "BSS-TU3W", CategoryId = categories[5].Id, Price = 899.00m, ShortDescription = "O afinador pedal de referência mundial com buffer melhorado", Description = "O Boss TU-3W Waza Craft é a versão premium do clássico TU-3. Com circuito buffer de alta qualidade e alta precisão de afinação, é o afinador de referência para profissionais.", ImageUrl = "https://images.unsplash.com/photo-1525201548942-d8732f6617a0?w=600", StockQuantity = 15, IsFeatured = false, Rating = 4.8, ReviewCount = 234 },
+            new() { Name = "Capa para Guitarra Premium", Brand = "Mono", SKU = "MONO-CAP-GT", CategoryId = categories[5].Id, Price = 1299.00m, ShortDescription = "Proteção máxima para sua guitarra em qualquer lugar", Description = "A capa Mono M80 oferece proteção de nível militar para sua guitarra. Com espuma aeroespacial, zíper YKK e alças ergonômicas, é a capa favorita dos músicos que viajam.", ImageUrl = "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=600", StockQuantity = 12, IsFeatured = false, Rating = 4.9, ReviewCount = 189 },
+        };
+
+        context.Products.AddRange(products);
+        await context.SaveChangesAsync();
+    }
+}

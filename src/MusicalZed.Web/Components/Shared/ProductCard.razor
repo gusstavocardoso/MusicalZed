@@ -1,0 +1,52 @@
+@inject NavigationManager Nav
+
+<div class="mz-product-card" @onclick="GoToDetail" style="cursor:pointer;">
+    <div class="product-img-wrap">
+        <img src="@Product.ImageUrl" alt="@Product.Name" loading="lazy"
+             onerror="this.src='https://placehold.co/600x400/1a1a2e/ffffff?text=Musical+Zed'" />
+        @if (Product.OriginalPrice.HasValue)
+        {
+            <span class="product-badge">
+                -@((int)Math.Round((1 - Product.Price / Product.OriginalPrice.Value) * 100))%
+            </span>
+        }
+    </div>
+    <div class="p-3 d-flex flex-column flex-grow-1">
+        <div class="product-brand">@Product.Brand</div>
+        <div class="product-name mb-1">@Product.Name</div>
+        <div class="mb-1" style="font-size:.78rem;color:var(--mz-gold)">
+            @for (int i = 1; i <= 5; i++)
+            {
+                <i class="fa-solid fa-star @(i <= Math.Round(Product.Rating) ? "star-filled" : "star-empty")"></i>
+            }
+            <span class="text-muted ms-1">(@Product.ReviewCount)</span>
+        </div>
+        <div class="mt-auto">
+            @if (Product.OriginalPrice.HasValue)
+            {
+                <div class="product-original-price">R$ @Product.OriginalPrice.Value.ToString("N2")</div>
+            }
+            <div class="product-price">R$ @Product.Price.ToString("N2")</div>
+        </div>
+        <button class="btn btn-mz btn-sm w-100 mt-2"
+                @onclick:stopPropagation="true"
+                @onclick="HandleAdd"
+                disabled="@(Product.StockQuantity == 0)">
+            <i class="fa-solid fa-cart-plus me-1"></i>
+            @(Product.StockQuantity == 0 ? "Indispon&iacute;vel" : "Adicionar")
+        </button>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public ProductDto Product { get; set; } = null!;
+    [Parameter] public EventCallback<ProductDto> OnAddToCart { get; set; }
+
+    private void GoToDetail() => Nav.NavigateTo($"/produto/{Product.Id}");
+
+    private async Task HandleAdd()
+    {
+        if (OnAddToCart.HasDelegate)
+            await OnAddToCart.InvokeAsync(Product);
+    }
+}

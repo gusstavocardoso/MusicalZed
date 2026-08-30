@@ -1,0 +1,120 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@inject IProductService ProductService
+@inject ICategoryService CategoryService
+@inject ICartService CartService
+@inject CartStateService CartState
+
+<PageTitle>Musical Zed - Instrumentos Musicais</PageTitle>
+
+<!-- HERO -->
+<div class="mz-hero">
+    <div class="container position-relative">
+        <div class="row">
+            <div class="col-lg-7">
+                <h1 class="display-4 fw-bold mb-3">Sua m&uacute;sica come&ccedil;a aqui</h1>
+                <p class="lead mb-4 opacity-75">Os melhores instrumentos musicais com os melhores pre&ccedil;os. Guitarras, baixos, baterias, teclados e muito mais.</p>
+                <a href="/produtos" class="btn btn-warning fw-bold px-4 py-2 me-2">
+                    <i class="fa-solid fa-guitar me-2"></i>Ver Produtos
+                </a>
+                <a href="/produtos" class="btn btn-outline-light px-4 py-2">
+                    <i class="fa-solid fa-tag me-2"></i>Ofertas
+                </a>
+            </div>
+        </div>
+        <i class="fa-solid fa-music hero-big-icon"></i>
+    </div>
+</div>
+
+<!-- STRIP -->
+<div class="bg-white shadow-sm py-3">
+    <div class="container">
+        <div class="row text-center g-2">
+            <div class="col-6 col-md-3"><i class="fa-solid fa-truck-fast text-danger me-1"></i><small class="fw-semibold">Frete Gr&aacute;tis acima de R$500</small></div>
+            <div class="col-6 col-md-3"><i class="fa-solid fa-shield-halved text-success me-1"></i><small class="fw-semibold">Compra Segura</small></div>
+            <div class="col-6 col-md-3"><i class="fa-solid fa-rotate-left text-primary me-1"></i><small class="fw-semibold">Devolu&ccedil;&atilde;o em 30 dias</small></div>
+            <div class="col-6 col-md-3"><i class="fa-solid fa-headset text-warning me-1"></i><small class="fw-semibold">Suporte Especializado</small></div>
+        </div>
+    </div>
+</div>
+
+<div class="container my-5">
+    <!-- CATEGORIAS -->
+    <h2 class="mz-section-title">Categorias</h2>
+    @if (_categories is null)
+    {
+        <div class="mz-spinner"></div>
+    }
+    else
+    {
+        <div class="row g-3 mb-5">
+            @foreach (var cat in _categories)
+            {
+                <div class="col-6 col-md-4 col-lg-2">
+                    <a href="/produtos?categoriaId=@cat.Id" class="mz-category-card">
+                        <div class="cat-icon"><i class="fa-solid @cat.IconClass"></i></div>
+                        <div class="fw-semibold small">@cat.Name</div>
+                        <small class="text-muted">@cat.ProductCount produtos</small>
+                    </a>
+                </div>
+            }
+        </div>
+    }
+
+    <!-- DESTAQUE -->
+    <h2 class="mz-section-title">Produtos em Destaque</h2>
+    @if (_featured is null)
+    {
+        <div class="mz-spinner"></div>
+    }
+    else
+    {
+        <div class="row g-3">
+            @foreach (var p in _featured)
+            {
+                <div class="col-6 col-md-4 col-lg-3">
+                    <ProductCard Product="p" OnAddToCart="AddToCart" />
+                </div>
+            }
+        </div>
+        <div class="text-center mt-4">
+            <a href="/produtos" class="btn btn-mz-outline px-4">
+                <i class="fa-solid fa-arrow-right me-2"></i>Ver todos os produtos
+            </a>
+        </div>
+    }
+</div>
+
+@if (_toast is not null)
+{
+    <div class="mz-toast">
+        <div class="toast show align-items-center text-bg-success border-0 shadow">
+            <div class="d-flex">
+                <div class="toast-body"><i class="fa-solid fa-check-circle me-2"></i>@_toast</div>
+                <button class="btn-close btn-close-white me-2 m-auto" @onclick="() => _toast = null"></button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private IEnumerable<CategoryDto>? _categories;
+    private IEnumerable<ProductDto>? _featured;
+    private string? _toast;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _categories = await CategoryService.GetAllAsync();
+        _featured = await ProductService.GetFeaturedAsync();
+    }
+
+    private async Task AddToCart(ProductDto p)
+    {
+        var cart = await CartService.AddItemAsync(CartState.SessionId, new AddToCartRequest(p.Id, 1));
+        CartState.SetItemCount(cart.ItemCount);
+        _toast = $"{p.Name} adicionado ao carrinho!";
+        await Task.Delay(3000);
+        _toast = null;
+        StateHasChanged();
+    }
+}

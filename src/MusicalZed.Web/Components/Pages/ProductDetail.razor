@@ -1,0 +1,137 @@
+@page "/produto/{Id:int}"
+@rendermode InteractiveServer
+@inject IProductService ProductService
+@inject ICartService CartService
+@inject CartStateService CartState
+@inject NavigationManager Nav
+
+<PageTitle>@(_product?.Name ?? "Produto") - Musical Zed</PageTitle>
+
+<div class="container my-5">
+    @if (_product is null)
+    {
+        <div class="mz-spinner"></div>
+    }
+    else
+    {
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/">In&iacute;cio</a></li>
+                <li class="breadcrumb-item"><a href="/produtos">Produtos</a></li>
+                <li class="breadcrumb-item"><a href="/produtos?categoriaId=@_product.CategoryId">@_product.CategoryName</a></li>
+                <li class="breadcrumb-item active">@_product.Name</li>
+            </ol>
+        </nav>
+
+        <div class="row g-5">
+            <div class="col-md-5">
+                <img src="@_product.ImageUrl" alt="@_product.Name" class="product-detail-img shadow"
+                     onerror="this.src='https://placehold.co/600x400/1a1a2e/ffffff?text=Musical+Zed'" />
+            </div>
+            <div class="col-md-7">
+                <span class="badge bg-secondary mb-2">@_product.CategoryName</span>
+                <p class="text-muted small text-uppercase mb-0" style="letter-spacing:1px">@_product.Brand</p>
+                <h1 class="h2 fw-bold">@_product.Name</h1>
+                <p class="text-muted small">SKU: @_product.SKU</p>
+
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span style="color:var(--mz-gold);font-size:.85rem">
+                        @for (int i = 1; i <= 5; i++)
+                        {
+                            <i class="fa-solid fa-star @(i <= Math.Round(_product.Rating) ? "star-filled" : "star-empty")"></i>
+                        }
+                    </span>
+                    <span class="text-muted small">@_product.Rating.ToString("N1") (@_product.ReviewCount avalia&ccedil;&otilde;es)</span>
+                </div>
+
+                <div class="mb-4">
+                    @if (_product.OriginalPrice.HasValue)
+                    {
+                        <div class="text-muted text-decoration-line-through">R$ @_product.OriginalPrice.Value.ToString("N2")</div>
+                        <span class="badge bg-danger mb-1">-@((int)Math.Round((1 - _product.Price / _product.OriginalPrice.Value) * 100))% OFF</span>
+                    }
+                    <div class="display-6 fw-bold" style="color:var(--mz-accent)">R$ @_product.Price.ToString("N2")</div>
+                    @if (_product.Price >= 500)
+                    {
+                        <small class="text-success"><i class="fa-solid fa-truck-fast me-1"></i>Frete gr&aacute;tis</small>
+                    }
+                </div>
+
+                <div class="mb-4">
+                    @if (_product.StockQuantity > 5)
+                    {
+                        <span class="badge bg-success-subtle text-success border border-success-subtle">
+                            <i class="fa-solid fa-circle-check me-1"></i>Em estoque (@_product.StockQuantity un.)
+                        </span>
+                    }
+                    else if (_product.StockQuantity > 0)
+                    {
+                        <span class="badge bg-warning-subtle text-warning border border-warning-subtle">
+                            <i class="fa-solid fa-triangle-exclamation me-1"></i>&Uacute;ltimas @_product.StockQuantity unidades!
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary">Fora de estoque</span>
+                    }
+                </div>
+
+                <div class="d-flex align-items-center gap-3 mb-4 flex-wrap">
+                    <div class="d-flex align-items-center border rounded overflow-hidden">
+                        <button class="btn btn-sm px-3 py-2 border-0" @onclick="Dec" disabled="@(_qty <= 1)">&#8722;</button>
+                        <span class="px-3 fw-bold border-start border-end">@_qty</span>
+                        <button class="btn btn-sm px-3 py-2 border-0" @onclick="Inc" disabled="@(_qty >= _product.StockQuantity)">+</button>
+                    </div>
+                    <button class="btn btn-mz px-4 py-2" @onclick="AddToCart"
+                            disabled="@(_product.StockQuantity == 0 || _adding)">
+                        @if (_adding) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                        else { <i class="fa-solid fa-cart-plus me-2"></i> }
+                        Adicionar ao Carrinho
+                    </button>
+                </div>
+
+                @if (_toast is not null)
+                {
+                    <div class="alert alert-success py-2 small">
+                        <i class="fa-solid fa-check me-2"></i>@_toast
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="row mt-5">
+            <div class="col-12">
+                <div class="checkout-card">
+                    <h5 class="fw-bold mb-3"><i class="fa-solid fa-info-circle me-2 text-danger"></i>Sobre o Produto</h5>
+                    <p class="text-muted mb-0">@_product.Description</p>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private ProductDto? _product;
+    private int _qty = 1;
+    private bool _adding;
+    private string? _toast;
+
+    protected override async Task OnInitializedAsync() => _product = await ProductService.GetByIdAsync(Id);
+
+    private void Inc() { if (_product is not null && _qty < _product.StockQuantity) _qty++; }
+    private void Dec() { if (_qty > 1) _qty--; }
+
+    private async Task AddToCart()
+    {
+        if (_product is null) return;
+        _adding = true;
+        var cart = await CartService.AddItemAsync(CartState.SessionId, new AddToCartRequest(_product.Id, _qty));
+        CartState.SetItemCount(cart.ItemCount);
+        _toast = $"{_qty}x {_product.Name} adicionado!";
+        _adding = false;
+        await Task.Delay(3000);
+        _toast = null;
+        StateHasChanged();
+    }
+}

@@ -1,0 +1,42 @@
+﻿@inherits LayoutComponentBase
+@implements IDisposable
+@inject CartStateService CartState
+
+<header class="mz-navbar navbar navbar-dark sticky-top flex-md-nowrap p-0 shadow">
+    <a class="navbar-brand px-3 py-3 fw-bold" href="/">
+        <i class="fa-solid fa-music me-2"></i>Musical Zed
+    </a>
+    <nav class="navbar-nav flex-row ms-auto me-3 gap-3 align-items-center">
+        <NavLink class="nav-link text-white" href="/" Match="NavLinkMatch.All">
+            <i class="fa-solid fa-house me-1"></i><span class="d-none d-md-inline">In&iacute;cio</span>
+        </NavLink>
+        <NavLink class="nav-link text-white" href="/produtos">
+            <i class="fa-solid fa-guitar me-1"></i><span class="d-none d-md-inline">Produtos</span>
+        </NavLink>
+        <NavLink class="nav-link text-white position-relative" href="/carrinho">
+            <i class="fa-solid fa-cart-shopping me-1"></i><span class="d-none d-md-inline">Carrinho</span>
+            @if (CartState.ItemCount > 0)
+            {
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark" style="font-size:0.6rem">
+                    @CartState.ItemCount
+                </span>
+            }
+        </NavLink>
+    </nav>
+</header>
+
+<main class="main-content">
+    @Body
+</main>
+
+<footer class="mz-footer py-4 mt-5">
+    <div class="container text-center">
+        <p class="mb-1"><i class="fa-solid fa-music me-2"></i><strong>Musical Zed</strong> &mdash; Sua loja de instrumentos musicais</p>
+        <p class="mb-0 small text-muted">&copy; @DateTime.Now.Year Musical Zed. Todos os direitos reservados.</p>
+    </div>
+</footer>
+
+@code {
+    protected override void OnInitialized() => CartState.OnChange += StateHasChanged;
+    public void Dispose() => CartState.OnChange -= StateHasChanged;
+}

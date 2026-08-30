@@ -1,0 +1,10 @@
+/* Musical Zed - Swagger UI Theme */
+.swagger-ui .topbar { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); }
+.swagger-ui .topbar .download-url-wrapper .select-label select { border-color: #e94560; }
+.swagger-ui .info .title { color: #1a1a2e; }
+.swagger-ui .btn.authorize { background-color: #e94560; border-color: #e94560; color: white; }
+.swagger-ui .opblock.opblock-get .opblock-summary { border-color: #61affe; }
+.swagger-ui .opblock.opblock-post .opblock-summary { border-color: #49cc90; }
+.swagger-ui .opblock.opblock-put .opblock-summary { border-color: #fca130; }
+.swagger-ui .opblock.opblock-delete .opblock-summary { border-color: #f93e3e; }
+.swagger-ui .info .description p { font-size: 14px; }

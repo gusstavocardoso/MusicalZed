@@ -1,0 +1,159 @@
+@page "/produtos"
+@rendermode InteractiveServer
+@inject IProductService ProductService
+@inject ICategoryService CategoryService
+@inject ICartService CartService
+@inject CartStateService CartState
+
+<PageTitle>Produtos - Musical Zed</PageTitle>
+
+<div class="container my-4">
+    <div class="row g-4">
+        <!-- SIDEBAR -->
+        <div class="col-md-3">
+            <div class="filter-card">
+                <h6 class="fw-bold mb-3"><i class="fa-solid fa-filter me-2 text-danger"></i>Filtros</h6>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Buscar</label>
+                    <input type="text" class="form-control form-control-sm" placeholder="Nome, marca..."
+                           value="@_search" @oninput="OnSearchInput" />
+                </div>
+                <div>
+                    <label class="form-label small fw-semibold">Categoria</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="cat" id="cat0"
+                               checked="@(_catId == null)" @onchange="() => SetCategory(null)" />
+                        <label class="form-check-label small" for="cat0">Todas</label>
+                    </div>
+                    @if (_categories is not null)
+                    {
+                        @foreach (var c in _categories)
+                        {
+                            var id = c.Id;
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="cat" id="cat@(c.Id)"
+                                       checked="@(_catId == c.Id)" @onchange="() => SetCategory(id)" />
+                                <label class="form-check-label small" for="cat@(c.Id)">
+                                    @c.Name <span class="text-muted">(@c.ProductCount)</span>
+                                </label>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- GRID -->
+        <div class="col-md-9">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mz-section-title mb-0">
+                    @(_catId.HasValue ? _categories?.FirstOrDefault(c => c.Id == _catId)?.Name ?? "Produtos" : "Todos os Produtos")
+                </h5>
+                @if (_products is not null)
+                {
+                    <span class="badge bg-secondary">@_products.Count() produto(s)</span>
+                }
+            </div>
+
+            @if (_products is null)
+            {
+                <div class="mz-spinner"></div>
+            }
+            else if (!_products.Any())
+            {
+                <div class="text-center py-5">
+                    <i class="fa-solid fa-search fa-3x text-muted mb-3 d-block"></i>
+                    <p class="text-muted">Nenhum produto encontrado para "<strong>@_search</strong>".</p>
+                    <button class="btn btn-mz-outline btn-sm" @onclick="Reset">Limpar filtros</button>
+                </div>
+            }
+            else
+            {
+                <div class="row g-3">
+                    @foreach (var p in _products)
+                    {
+                        <div class="col-6 col-lg-4">
+                            <ProductCard Product="p" OnAddToCart="AddToCart" />
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@if (_toast is not null)
+{
+    <div class="mz-toast">
+        <div class="toast show align-items-center text-bg-success border-0 shadow">
+            <div class="d-flex">
+                <div class="toast-body"><i class="fa-solid fa-check me-2"></i>@_toast</div>
+                <button class="btn-close btn-close-white me-2 m-auto" @onclick="() => _toast = null"></button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "categoriaId")] public int? CategoriaIdQuery { get; set; }
+
+    private IEnumerable<ProductDto>? _products;
+    private IEnumerable<CategoryDto>? _categories;
+    private int? _catId;
+    private string _search = string.Empty;
+    private string? _toast;
+    private System.Timers.Timer? _debounce;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _categories = await CategoryService.GetAllAsync();
+        _catId = CategoriaIdQuery;
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        _products = null;
+        StateHasChanged();
+        if (!string.IsNullOrWhiteSpace(_search))
+            _products = await ProductService.SearchAsync(_search);
+        else if (_catId.HasValue)
+            _products = await ProductService.GetByCategoryAsync(_catId.Value);
+        else
+            _products = await ProductService.GetAllAsync();
+    }
+
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        _search = e.Value?.ToString() ?? string.Empty;
+        _catId = null;
+        _debounce?.Dispose();
+        _debounce = new System.Timers.Timer(350) { AutoReset = false };
+        _debounce.Elapsed += async (_, _) => await InvokeAsync(async () => { await Load(); StateHasChanged(); });
+        _debounce.Start();
+    }
+
+    private async Task SetCategory(int? id)
+    {
+        _catId = id;
+        _search = string.Empty;
+        await Load();
+    }
+
+    private async Task Reset()
+    {
+        _catId = null;
+        _search = string.Empty;
+        await Load();
+    }
+
+    private async Task AddToCart(ProductDto p)
+    {
+        var cart = await CartService.AddItemAsync(CartState.SessionId, new AddToCartRequest(p.Id, 1));
+        CartState.SetItemCount(cart.ItemCount);
+        _toast = $"{p.Name} adicionado!";
+        await Task.Delay(2500);
+        _toast = null;
+        StateHasChanged();
+    }
+}

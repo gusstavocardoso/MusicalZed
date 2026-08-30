@@ -1,0 +1,242 @@
+name: Musical Zed CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  DOTNET_VERSION: '9.0.x'
+
+jobs:
+  # ─────────────────────────────────────────────
+  # JOB 1 – BUILD
+  # ─────────────────────────────────────────────
+  build:
+    name: Build Solution
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build (Release)
+        run: dotnet build --no-restore -c Release
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            src/MusicalZed.API/bin/Release/
+            src/MusicalZed.Web/bin/Release/
+          retention-days: 1
+
+  # ─────────────────────────────────────────────
+  # JOB 2 – UNIT TESTS
+  # ─────────────────────────────────────────────
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Run Unit Tests
+        run: |
+          dotnet test tests/MusicalZed.UnitTests \
+            --no-restore \
+            --logger "trx;LogFileName=unit-results.trx" \
+            --results-directory TestResults \
+            --collect:"XPlat Code Coverage"
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unit-test-results
+          path: TestResults/
+
+  # ─────────────────────────────────────────────
+  # JOB 3 – INTEGRATION TESTS
+  # ─────────────────────────────────────────────
+  integration-tests:
+    name: Integration Tests (API)
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Run Integration Tests
+        run: |
+          dotnet test tests/MusicalZed.IntegrationTests \
+            --no-restore \
+            --logger "trx;LogFileName=integration-results.trx" \
+            --results-directory TestResults
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-test-results
+          path: TestResults/
+
+  # ─────────────────────────────────────────────
+  # JOB 4 – E2E TESTS (Playwright)
+  # ─────────────────────────────────────────────
+  e2e-tests:
+    name: E2E Tests (Playwright)
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build E2E project
+        run: dotnet build tests/MusicalZed.E2ETests -c Debug
+
+      - name: Install Playwright browsers
+        run: |
+          pwsh tests/MusicalZed.E2ETests/bin/Debug/net9.0/playwright.ps1 install --with-deps chromium
+
+      - name: Start API (background)
+        run: |
+          cd src/MusicalZed.API
+          dotnet run --urls "http://localhost:5000" &
+          sleep 8
+
+      - name: Start Web (background)
+        run: |
+          cd src/MusicalZed.Web
+          dotnet run --urls "http://localhost:5002" &
+          sleep 10
+
+      - name: Wait for services
+        run: |
+          curl --retry 10 --retry-delay 3 --retry-connrefused http://localhost:5000/api/categories
+          curl --retry 10 --retry-delay 3 --retry-connrefused http://localhost:5002
+
+      - name: Run E2E Tests
+        env:
+          E2E_BASE_URL: http://localhost:5002
+        run: |
+          dotnet test tests/MusicalZed.E2ETests \
+            --no-restore \
+            --settings tests/MusicalZed.E2ETests/playwright.runsettings \
+            --logger "trx;LogFileName=e2e-results.trx" \
+            --results-directory TestResults
+
+      - name: Upload E2E results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-test-results
+          path: TestResults/
+
+  # ─────────────────────────────────────────────
+  # JOB 5 – PERFORMANCE VALIDATION (k6)
+  # ─────────────────────────────────────────────
+  performance-validation:
+    name: Performance Tests (k6)
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests]
+    # Só executa em push para main
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring \
+            --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
+            --keyserver hkp://keyserver.ubuntu.com:80 \
+            --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
+            | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update && sudo apt-get install k6 -y
+
+      - name: Restore & Start API
+        run: |
+          dotnet restore
+          cd src/MusicalZed.API
+          dotnet run --urls "http://localhost:5000" &
+          sleep 10
+          curl --retry 10 --retry-delay 3 --retry-connrefused http://localhost:5000/api/categories
+
+      - name: Run Smoke Test (homepage)
+        run: |
+          k6 run \
+            -e API_URL=http://localhost:5000 \
+            --vus 1 --duration 10s \
+            tests/MusicalZed.PerformanceTests/k6/scenarios/homepage-load.js
+
+      - name: Run Products Load Test
+        run: |
+          k6 run \
+            -e API_URL=http://localhost:5000 \
+            tests/MusicalZed.PerformanceTests/k6/scenarios/products-load.js
+
+      - name: Run Cart Operations Test
+        run: |
+          k6 run \
+            -e API_URL=http://localhost:5000 \
+            tests/MusicalZed.PerformanceTests/k6/scenarios/cart-operations.js
+
+      - name: Run Checkout Flow Test
+        run: |
+          k6 run \
+            -e API_URL=http://localhost:5000 \
+            tests/MusicalZed.PerformanceTests/k6/scenarios/checkout-flow.js
+
+      - name: Upload k6 results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k6-results
+          path: '*.json'

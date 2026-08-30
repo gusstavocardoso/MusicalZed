@@ -1,0 +1,139 @@
+@page "/carrinho"
+@rendermode InteractiveServer
+@inject ICartService CartService
+@inject CartStateService CartState
+@inject NavigationManager Nav
+
+<PageTitle>Carrinho - Musical Zed</PageTitle>
+
+<div class="container my-5">
+    <h2 class="mz-section-title"><i class="fa-solid fa-cart-shopping me-2"></i>Meu Carrinho</h2>
+
+    @if (_cart is null)
+    {
+        <div class="mz-spinner"></div>
+    }
+    else if (!_cart.Items.Any())
+    {
+        <div class="text-center py-5">
+            <i class="fa-solid fa-cart-shopping fa-4x text-muted mb-4 d-block"></i>
+            <h4 class="text-muted">Seu carrinho est&aacute; vazio</h4>
+            <p class="text-muted">Explore nossos produtos e adicione ao carrinho!</p>
+            <a href="/produtos" class="btn btn-mz px-4 mt-2">
+                <i class="fa-solid fa-guitar me-2"></i>Ver Produtos
+            </a>
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+            <div class="col-lg-8">
+                @foreach (var item in _cart.Items)
+                {
+                    <div class="cart-item-card">
+                        <div class="row align-items-center g-3">
+                            <div class="col-3 col-md-2">
+                                <img src="@item.ProductImageUrl" alt="@item.ProductName"
+                                     class="img-fluid rounded"
+                                     onerror="this.src='https://placehold.co/80x80/1a1a2e/ffffff?text=MZ'" />
+                            </div>
+                            <div class="col-9 col-md-5">
+                                <div class="fw-semibold small">@item.ProductName</div>
+                                <div class="text-muted small">R$ @item.UnitPrice.ToString("N2") / un.</div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="d-flex align-items-center border rounded overflow-hidden" style="width:fit-content">
+                                    <button class="btn btn-sm px-2 py-1 border-0"
+                                            @onclick="() => UpdateQty(item.ProductId, item.Quantity - 1)">&#8722;</button>
+                                    <span class="px-2 fw-bold border-start border-end small">@item.Quantity</span>
+                                    <button class="btn btn-sm px-2 py-1 border-0"
+                                            @onclick="() => UpdateQty(item.ProductId, item.Quantity + 1)">+</button>
+                                </div>
+                            </div>
+                            <div class="col-4 col-md-2 text-end">
+                                <div class="fw-bold" style="color:var(--mz-accent)">R$ @item.Subtotal.ToString("N2")</div>
+                                <button class="btn btn-sm btn-link text-danger p-0 mt-1"
+                                        @onclick="() => Remove(item.ProductId)">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
+                <button class="btn btn-link text-danger btn-sm" @onclick="Clear">
+                    <i class="fa-solid fa-trash me-1"></i>Limpar carrinho
+                </button>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="cart-summary">
+                    <h5 class="fw-bold mb-3">Resumo do Pedido</h5>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Subtotal (@_cart.ItemCount itens)</span>
+                        <span>R$ @_cart.Total.ToString("N2")</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Frete</span>
+                        @if (_cart.Total >= 500)
+                        {
+                            <span class="text-success fw-semibold"><i class="fa-solid fa-truck-fast me-1"></i>Gr&aacute;tis</span>
+                        }
+                        else
+                        {
+                            <span>R$ 29,90</span>
+                        }
+                    </div>
+                    <hr />
+                    <div class="d-flex justify-content-between fw-bold fs-5 mb-4">
+                        <span>Total</span>
+                        <span style="color:var(--mz-accent)">
+                            R$ @((_cart.Total + (_cart.Total >= 500 ? 0 : 29.90m)).ToString("N2"))
+                        </span>
+                    </div>
+                    <button class="btn btn-mz w-100" @onclick="GoToCheckout">
+                        <i class="fa-solid fa-credit-card me-2"></i>Finalizar Pedido
+                    </button>
+                    <a href="/produtos" class="btn btn-mz-outline w-100 mt-2">
+                        <i class="fa-solid fa-arrow-left me-2"></i>Continuar Comprando
+                    </a>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private CartDto? _cart;
+
+    protected override async Task OnInitializedAsync() => await LoadCart();
+
+    private async Task LoadCart()
+    {
+        _cart = await CartService.GetCartAsync(CartState.SessionId);
+        CartState.SetItemCount(_cart.ItemCount);
+    }
+
+    private async Task UpdateQty(int productId, int qty)
+    {
+        _cart = await CartService.UpdateItemAsync(CartState.SessionId, productId, new UpdateCartItemRequest(qty));
+        CartState.SetItemCount(_cart.ItemCount);
+    }
+
+    private async Task Remove(int productId)
+    {
+        _cart = await CartService.RemoveItemAsync(CartState.SessionId, productId);
+        CartState.SetItemCount(_cart.ItemCount);
+    }
+
+    private async Task Clear()
+    {
+        await CartService.ClearCartAsync(CartState.SessionId);
+        await LoadCart();
+    }
+
+    private void GoToCheckout()
+    {
+        if (_cart?.Items.Any() == true)
+            Nav.NavigateTo("/checkout");
+    }
+}

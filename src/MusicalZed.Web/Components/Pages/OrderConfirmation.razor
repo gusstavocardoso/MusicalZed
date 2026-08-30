@@ -1,0 +1,74 @@
+@page "/pedido-confirmado/{Id:int}"
+@rendermode InteractiveServer
+@inject IOrderService OrderService
+
+<PageTitle>Pedido Confirmado - Musical Zed</PageTitle>
+
+<div class="container my-5">
+    @if (_order is null)
+    {
+        <div class="mz-spinner"></div>
+    }
+    else
+    {
+        <div class="row justify-content-center">
+            <div class="col-lg-8 text-center mb-4">
+                <div class="order-icon"><i class="fa-solid fa-circle-check"></i></div>
+                <h2 class="fw-bold text-success">Pedido Confirmado!</h2>
+                <p class="text-muted">Obrigado, <strong>@_order.CustomerName</strong>! Seu pedido foi recebido com sucesso.</p>
+                <div class="badge bg-primary fs-6 px-4 py-2"># @_order.Id</div>
+            </div>
+
+            <div class="col-lg-8">
+                <div class="checkout-card">
+                    <h6 class="fw-bold mb-3"><i class="fa-solid fa-list me-2 text-danger"></i>Itens do Pedido</h6>
+                    @foreach (var item in _order.Items)
+                    {
+                        <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                            <div>
+                                <div class="small fw-semibold">@item.ProductName</div>
+                                <div class="text-muted" style="font-size:.78rem">@item.Quantity &times; R$ @item.UnitPrice.ToString("N2")</div>
+                            </div>
+                            <div class="fw-bold" style="color:var(--mz-accent)">R$ @item.Total.ToString("N2")</div>
+                        </div>
+                    }
+                    <div class="d-flex justify-content-between mt-2">
+                        <span class="text-muted small">Frete</span>
+                        @if (_order.ShippingCost == 0)
+                        { <span class="text-success small">Gr&aacute;tis</span> }
+                        else
+                        { <span class="small">R$ @_order.ShippingCost.ToString("N2")</span> }
+                    </div>
+                    <div class="d-flex justify-content-between mt-2 fw-bold fs-5">
+                        <span>Total</span>
+                        <span style="color:var(--mz-accent)">R$ @_order.Total.ToString("N2")</span>
+                    </div>
+                </div>
+
+                <div class="checkout-card">
+                    <h6 class="fw-bold mb-3"><i class="fa-solid fa-envelope me-2 text-danger"></i>Detalhes de Entrega</h6>
+                    <p class="mb-1 small"><strong>E-mail:</strong> @_order.Email</p>
+                    <p class="mb-1 small"><strong>Telefone:</strong> @_order.Phone</p>
+                    <p class="mb-1 small"><strong>Endere&ccedil;o:</strong> @_order.Address, @_order.City - @_order.State</p>
+                    <p class="mb-0 small"><strong>Pagamento:</strong> @_order.PaymentMethod</p>
+                </div>
+
+                <div class="text-center mt-3">
+                    <a href="/" class="btn btn-mz px-4 me-2">
+                        <i class="fa-solid fa-house me-2"></i>Voltar ao In&iacute;cio
+                    </a>
+                    <a href="/produtos" class="btn btn-mz-outline px-4">
+                        <i class="fa-solid fa-guitar me-2"></i>Continuar Comprando
+                    </a>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private OrderDto? _order;
+
+    protected override async Task OnInitializedAsync() => _order = await OrderService.GetByIdAsync(Id);
+}
